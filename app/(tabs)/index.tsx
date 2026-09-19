@@ -64,6 +64,20 @@ export default function NewSaleScreen() {
     );
   }
 
+  function updateLineDescription(productId: string, description: string) {
+    setCart((prev) =>
+      prev.map((line) => (line.productId === productId ? { ...line, description } : line))
+    );
+  }
+
+  function updateLinePrice(productId: string, priceText: string) {
+    setCart((prev) =>
+      prev.map((line) =>
+        line.productId === productId ? { ...line, unitPrice: parseFloat(priceText) || 0 } : line
+      )
+    );
+  }
+
   function quantityInCart(productId: string): number {
     return cart.find((line) => line.productId === productId)?.quantity ?? 0;
   }
@@ -215,27 +229,45 @@ export default function NewSaleScreen() {
               className="mb-3"
               ItemSeparatorComponent={() => <View className="h-[1px] bg-line" />}
               renderItem={({ item: line }) => (
-                <View className="flex-row items-center gap-3 py-3">
-                  <View className="flex-1">
-                    <Text className="text-[15px] font-manrope-semibold text-ink">{line.description}</Text>
-                    <Text className="mt-0.5 font-mono text-xs text-ink-soft">
-                      {line.unitShortCode ?? "—"} · {lineTotal(line.quantity, line.unitPrice).toFixed(2)}
-                    </Text>
+                <View className="gap-2 py-3">
+                  <View className="flex-row items-center gap-3">
+                    <TextInput
+                      className="flex-1 font-manrope-semibold text-[15px] text-ink"
+                      value={line.description}
+                      onChangeText={(text) => updateLineDescription(line.productId!, text)}
+                      placeholder="Name on receipt"
+                      placeholderTextColor={colors.textFaint}
+                    />
+                    <View className="flex-row items-center gap-2.5">
+                      <Pressable
+                        onPress={() => changeQuantity(line.productId!, -1)}
+                        className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
+                      >
+                        <Ionicons name="remove" size={16} color={colors.text} />
+                      </Pressable>
+                      <Text className="min-w-5 text-center font-mono-semibold text-sm text-ink">
+                        {line.quantity}
+                      </Text>
+                      <Pressable
+                        onPress={() => changeQuantity(line.productId!, 1)}
+                        className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
+                      >
+                        <Ionicons name="add" size={16} color={colors.text} />
+                      </Pressable>
+                    </View>
                   </View>
-                  <View className="flex-row items-center gap-2.5">
-                    <Pressable
-                      onPress={() => changeQuantity(line.productId!, -1)}
-                      className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
-                    >
-                      <Ionicons name="remove" size={16} color={colors.text} />
-                    </Pressable>
-                    <Text className="min-w-5 text-center font-mono-semibold text-sm text-ink">{line.quantity}</Text>
-                    <Pressable
-                      onPress={() => changeQuantity(line.productId!, 1)}
-                      className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
-                    >
-                      <Ionicons name="add" size={16} color={colors.text} />
-                    </Pressable>
+                  <View className="flex-row items-center gap-2">
+                    <Text className="font-mono text-xs text-ink-soft">{line.unitShortCode ?? "—"} ·</Text>
+                    <TextInput
+                      key={line.productId}
+                      className="w-20 rounded-md border border-line bg-background px-2 py-1 font-mono text-xs text-ink"
+                      defaultValue={String(line.unitPrice)}
+                      onEndEditing={(e) => updateLinePrice(line.productId!, e.nativeEvent.text)}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text className="font-mono text-xs text-ink-soft">
+                      each · {lineTotal(line.quantity, line.unitPrice).toFixed(2)} total
+                    </Text>
                   </View>
                 </View>
               )}
