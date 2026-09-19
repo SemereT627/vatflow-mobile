@@ -28,7 +28,7 @@ function getDb() {
           sale_client_id TEXT NOT NULL,
           product_id TEXT,
           description TEXT NOT NULL,
-          unit_of_measure INTEGER NOT NULL,
+          unit_of_measure TEXT NOT NULL,
           quantity REAL NOT NULL,
           unit_price REAL NOT NULL
         );
@@ -36,6 +36,10 @@ function getDb() {
           id INTEGER PRIMARY KEY CHECK (id = 1),
           issue TEXT,
           issue_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS profile_cache (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          data TEXT NOT NULL
         );
       `);
       return db;
@@ -48,7 +52,8 @@ export type CachedProduct = {
   id: string;
   name: string;
   unitPriceBeforeVat: number;
-  unitOfMeasure: number;
+  unitOfMeasure: string;
+  unitShortCode: string;
 };
 
 /** Replaces the whole cached catalog — called after every successful fetch
@@ -75,7 +80,10 @@ export async function getCachedCatalog(): Promise<CachedProduct[]> {
 export type SaleCartItem = {
   productId: string | null;
   description: string;
-  unitOfMeasure: number;
+  unitOfMeasure: string;
+  /** Display-only label (e.g. "KG"), set while building the cart from the live catalog.
+   * Not persisted in `pending_sale_items` — undefined when a queued sale is reloaded from storage. */
+  unitShortCode?: string;
   quantity: number;
   unitPrice: number;
 };
@@ -110,7 +118,7 @@ type PendingSaleItemRow = {
   sale_client_id: string;
   product_id: string | null;
   description: string;
-  unit_of_measure: number;
+  unit_of_measure: string;
   quantity: number;
   unit_price: number;
 };
@@ -269,4 +277,28 @@ export async function getSyncIssue(): Promise<SyncIssue | null> {
   );
   if (!row?.issue) return null;
   return { message: row.issue, at: row.issue_at ?? new Date().toISOString() };
+}
+
+export type CachedProfile = {
+  email: string | null;
+  fullName: string;
+  role: "admin" | "seller";
+  shop: { businessName: string; tin: string | null; vatRate: number };
+};
+
+/** Last-known account/shop details so the Profile screen has something to
+ * show offline — refreshed opportunistically whenever the screen is focused. */
+export async function cacheProfile(profile: CachedProfile) {
+  const db = await getDb();
+  await db.runAsync(
+    `INSERT INTO profile_cache (id, data) VALUES (1, ?)
+     ON CONFLICT (id) DO UPDATE SET data = excluded.data`,
+    [JSON.stringify(profile)]
+  );
+}
+
+export async function getCachedProfile(): Promise<CachedProfile | null> {
+  const db = await getDb();
+  const row = await db.getFirstAsync<{ data: string }>("SELECT data FROM profile_cache WHERE id = 1");
+  return row ? JSON.parse(row.data) : null;
 }

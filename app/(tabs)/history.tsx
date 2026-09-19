@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { getAllSales, discardSale, getSyncIssue, type PendingSale, type SyncIssue } from "@/lib/db";
 import { runSaleSync } from "@/lib/sync";
 import { lineTotal } from "@/lib/vat";
-import { colors, radius, spacing } from "@/constants/theme";
+import { colors, fonts, radius, spacing } from "@/constants/theme";
 
 const STATUS_META: Record<PendingSale["status"], { label: string; color: string; bg: string }> = {
   pending: { label: "Waiting to sync", color: colors.warning, bg: colors.warningSoft },
@@ -100,7 +100,7 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  heading: { fontSize: 20, fontWeight: "800", color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
+  heading: { fontSize: 20, fontFamily: fonts.heading, color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
   issueBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -111,9 +111,9 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: spacing.sm,
   },
-  issueText: { color: colors.danger, fontSize: 12, flex: 1 },
+  issueText: { color: colors.danger, fontSize: 12, flex: 1, fontFamily: fonts.body },
   listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing.xxl },
-  emptyText: { fontSize: 13, color: colors.textFaint, marginTop: spacing.lg },
+  emptyText: { fontSize: 13, color: colors.textFaint, marginTop: spacing.lg, fontFamily: fonts.body },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -122,10 +122,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     paddingVertical: spacing.md,
   },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: colors.text },
-  rowMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  rowReason: { fontSize: 11, color: colors.danger, marginTop: 2 },
+  rowTitle: { fontSize: 14, color: colors.text, fontFamily: fonts.bodySemibold },
+  rowMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2, fontFamily: fonts.mono },
+  rowReason: { fontSize: 11, color: colors.danger, marginTop: 2, fontFamily: fonts.body },
   badge: { borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
-  badgeText: { fontSize: 11, fontWeight: "700" },
+  badgeText: { fontSize: 11, fontFamily: fonts.bodyBold },
   discardButton: { padding: 6 },
 });

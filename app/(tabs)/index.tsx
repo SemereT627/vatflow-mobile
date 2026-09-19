@@ -1,23 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ScrollView,
-  Alert,
-} from "react-native";
+import { View, Text, TextInput, Pressable, Alert, Modal, FlatList } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { refreshCatalog, runSaleSync } from "@/lib/sync";
-import { enqueueSale, type CachedProduct, type SaleCartItem } from "@/lib/db";
-import { UNIT_OF_MEASURE_LABELS, lineTotal } from "@/lib/vat";
-import { colors, radius, spacing } from "@/constants/theme";
+import { enqueueSale, getCachedProfile, type CachedProduct, type SaleCartItem } from "@/lib/db";
+import { calcLine, lineTotal, DEFAULT_VAT_RATE } from "@/lib/vat";
+import { colors } from "@/constants/theme";
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function initialOf(name: string): string {
+  return name.trim().charAt(0).toUpperCase() || "?";
 }
 
 export default function NewSaleScreen() {
@@ -26,9 +22,14 @@ export default function NewSaleScreen() {
   const [receiptNumber, setReceiptNumber] = useState("");
   const [cart, setCart] = useState<SaleCartItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
 
   useEffect(() => {
     refreshCatalog().then(setProducts);
+    getCachedProfile().then((p) => {
+      if (p) setVatRate(p.shop.vatRate);
+    });
   }, []);
 
   const addProduct = useCallback((product: CachedProduct) => {
@@ -45,6 +46,7 @@ export default function NewSaleScreen() {
           productId: product.id,
           description: product.name,
           unitOfMeasure: product.unitOfMeasure,
+          unitShortCode: product.unitShortCode,
           quantity: 1,
           unitPrice: product.unitPriceBeforeVat,
         },
@@ -62,15 +64,30 @@ export default function NewSaleScreen() {
     );
   }
 
-  const total = cart.reduce((sum, line) => sum + lineTotal(line.quantity, line.unitPrice), 0);
+  function quantityInCart(productId: string): number {
+    return cart.find((line) => line.productId === productId)?.quantity ?? 0;
+  }
 
-  async function handleSubmit() {
-    if (!receiptNumber.trim()) {
-      Alert.alert("Missing receipt number", "Enter the VAT receipt number you issued.");
+  const total = cart.reduce((sum, line) => sum + lineTotal(line.quantity, line.unitPrice), 0);
+  const reviewTotals = cart.reduce(
+    (acc, line) => {
+      const t = calcLine(line.quantity, line.unitPrice, vatRate);
+      return { net: acc.net + t.totalValue, vat: acc.vat + t.vat, gross: acc.gross + t.valueAfterVat };
+    },
+    { net: 0, vat: 0, gross: 0 }
+  );
+
+  function openCart() {
+    if (cart.length === 0) {
+      Alert.alert("No items", "Tap an item above to add it first.");
       return;
     }
-    if (cart.length === 0) {
-      Alert.alert("No items", "Add at least one item sold.");
+    setReviewOpen(true);
+  }
+
+  async function confirmSave() {
+    if (!receiptNumber.trim()) {
+      Alert.alert("Missing receipt number", "Enter the VAT receipt number you issued.");
       return;
     }
 
@@ -86,6 +103,7 @@ export default function NewSaleScreen() {
       });
       setReceiptNumber("");
       setCart([]);
+      setReviewOpen(false);
       runSaleSync();
       Alert.alert("Saved", "Sale recorded. It will sync automatically.");
     } finally {
@@ -94,142 +112,163 @@ export default function NewSaleScreen() {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <Text style={styles.heading}>Record a sale</Text>
-
-        <TextInput
-          style={styles.receiptInput}
-          placeholder="VAT receipt number"
-          placeholderTextColor={colors.textFaint}
-          value={receiptNumber}
-          onChangeText={setReceiptNumber}
-          autoCapitalize="none"
-        />
-
-        <Text style={styles.sectionLabel}>Tap an item to add it</Text>
-        <View style={styles.productGrid}>
-          {products.map((product) => (
-            <Pressable key={product.id} style={styles.productChip} onPress={() => addProduct(product)}>
-              <Text style={styles.productChipName}>{product.name}</Text>
-              <Text style={styles.productChipPrice}>{product.unitPriceBeforeVat.toFixed(2)}</Text>
-            </Pressable>
-          ))}
-          {products.length === 0 && (
-            <Text style={styles.emptyText}>No products cached yet. Connect once to load the catalog.</Text>
-          )}
+    <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
+      {/* Fixed header — stays put while the list scrolls */}
+      <View className="border-b border-line bg-surface px-5 pb-4 pt-2">
+        <Text className="mb-3 text-xl font-heading text-ink">Record a sale</Text>
+        <View className="flex-row items-center gap-2.5 rounded-xl border border-line bg-background px-3.5 h-[50px]">
+          <Ionicons name="receipt-outline" size={18} color={colors.textFaint} />
+          <TextInput
+            className="flex-1 font-sans text-base text-ink"
+            placeholder="VAT receipt number"
+            placeholderTextColor={colors.textFaint}
+            value={receiptNumber}
+            onChangeText={setReceiptNumber}
+            autoCapitalize="none"
+          />
         </View>
+      </View>
 
-        {cart.length > 0 && (
-          <View style={styles.cart}>
-            <Text style={styles.sectionLabel}>Items sold</Text>
-            {cart.map((line) => (
-              <View key={line.productId} style={styles.cartRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.cartRowName}>{line.description}</Text>
-                  <Text style={styles.cartRowMeta}>
-                    {UNIT_OF_MEASURE_LABELS[line.unitOfMeasure]} · {lineTotal(line.quantity, line.unitPrice).toFixed(2)}
-                  </Text>
-                </View>
-                <View style={styles.stepper}>
-                  <Pressable onPress={() => changeQuantity(line.productId!, -1)} style={styles.stepperButton}>
-                    <Ionicons name="remove" size={16} color={colors.text} />
-                  </Pressable>
-                  <Text style={styles.stepperValue}>{line.quantity}</Text>
-                  <Pressable onPress={() => changeQuantity(line.productId!, 1)} style={styles.stepperButton}>
-                    <Ionicons name="add" size={16} color={colors.text} />
-                  </Pressable>
-                </View>
+      <FlatList
+        data={products}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={{ paddingBottom: 12 }}
+        ListHeaderComponent={
+          <Text className="px-5 pb-2 pt-4 text-[13px] font-manrope-semibold text-ink-soft">Tap an item to add it</Text>
+        }
+        ItemSeparatorComponent={() => <View className="h-[1px] bg-line ml-[68px]" />}
+        renderItem={({ item }) => {
+          const qty = quantityInCart(item.id);
+          return (
+            <Pressable
+              onPress={() => addProduct(item)}
+              className="flex-row items-center gap-3 px-5 py-3.5 active:bg-surface-alt"
+            >
+              <View className="h-11 w-11 items-center justify-center rounded-full bg-surface-alt">
+                <Text className="text-base font-heading-semibold text-ink-soft">{initialOf(item.name)}</Text>
               </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+              <View className="flex-1">
+                <Text className="text-[15px] font-manrope-semibold text-ink">{item.name}</Text>
+                <Text className="mt-0.5 font-mono text-xs text-ink-soft">
+                  {item.unitPriceBeforeVat.toFixed(2)} / {item.unitShortCode}
+                </Text>
+              </View>
+              {qty > 0 && (
+                <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-brand px-1.5">
+                  <Text className="font-manrope-bold text-xs text-brand-ink">{qty}</Text>
+                </View>
+              )}
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-brand">
+                <Ionicons name="add" size={18} color={colors.onPrimary} />
+              </View>
+            </Pressable>
+          );
+        }}
+        ListEmptyComponent={
+          <Text className="px-5 py-6 font-sans text-[13px] text-ink-faint">
+            No products cached yet. Connect once to load the catalog.
+          </Text>
+        }
+      />
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.md }]}>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalValue}>{total.toFixed(2)}</Text>
-        </View>
+      <View className="border-t border-line bg-surface px-5 py-3">
+        {/* No extra insets.bottom here — the Tabs navigator already reserves
+            safe-area space below its bar, so adding it again just doubles the gap. */}
         <Pressable
-          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
+          onPress={openCart}
+          disabled={cart.length === 0}
+          className={`flex-row items-center gap-2.5 rounded-xl px-4 py-3.5 ${
+            cart.length === 0 ? "bg-surface-alt" : "bg-brand"
+          }`}
         >
-          <Text style={styles.submitButtonText}>{submitting ? "Saving..." : "Save sale"}</Text>
+          {cart.length > 0 && (
+            <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-black/15 px-1.5">
+              <Text className="font-manrope-bold text-xs text-brand-ink">{cart.length}</Text>
+            </View>
+          )}
+          <Text
+            className={`flex-1 font-manrope-bold text-[15px] ${cart.length === 0 ? "text-ink-faint" : "text-brand-ink"}`}
+          >
+            {cart.length === 0 ? "Tap an item to start a sale" : "View cart"}
+          </Text>
+          {cart.length > 0 && (
+            <Text className="font-mono-semibold text-[15px] text-brand-ink">{total.toFixed(2)}</Text>
+          )}
         </Pressable>
       </View>
+
+      <Modal visible={reviewOpen} animationType="slide" transparent onRequestClose={() => setReviewOpen(false)}>
+        <View className="flex-1 justify-end bg-black/50">
+          <View
+            className="max-h-[85%] rounded-t-2xl bg-surface p-5"
+            style={{ paddingBottom: insets.bottom + 12 }}
+          >
+            <View className="mb-3 h-1 w-9 self-center rounded-full bg-line" />
+            <Text className="text-lg font-heading text-ink">Items sold</Text>
+            <Text className="mb-3 mt-0.5 font-sans text-[13px] text-ink-soft">
+              {receiptNumber.trim() ? `Receipt #${receiptNumber.trim()}` : "No receipt number entered yet"}
+            </Text>
+
+            <FlatList
+              data={cart}
+              keyExtractor={(item) => item.productId ?? item.description}
+              className="mb-3"
+              ItemSeparatorComponent={() => <View className="h-[1px] bg-line" />}
+              renderItem={({ item: line }) => (
+                <View className="flex-row items-center gap-3 py-3">
+                  <View className="flex-1">
+                    <Text className="text-[15px] font-manrope-semibold text-ink">{line.description}</Text>
+                    <Text className="mt-0.5 font-mono text-xs text-ink-soft">
+                      {line.unitShortCode ?? "—"} · {lineTotal(line.quantity, line.unitPrice).toFixed(2)}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center gap-2.5">
+                    <Pressable
+                      onPress={() => changeQuantity(line.productId!, -1)}
+                      className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
+                    >
+                      <Ionicons name="remove" size={16} color={colors.text} />
+                    </Pressable>
+                    <Text className="min-w-5 text-center font-mono-semibold text-sm text-ink">{line.quantity}</Text>
+                    <Pressable
+                      onPress={() => changeQuantity(line.productId!, 1)}
+                      className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
+                    >
+                      <Ionicons name="add" size={16} color={colors.text} />
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text className="font-sans text-[13px] text-ink-faint">Cart is empty.</Text>}
+            />
+
+            <View className="gap-1 border-t border-line pt-2.5">
+              <View className="flex-row justify-between">
+                <Text className="font-sans text-[13px] text-ink-soft">Net</Text>
+                <Text className="font-mono text-[13px] text-ink">{reviewTotals.net.toFixed(2)}</Text>
+              </View>
+              <View className="flex-row justify-between">
+                <Text className="font-sans text-[13px] text-ink-soft">VAT ({(vatRate * 100).toFixed(0)}%)</Text>
+                <Text className="font-mono text-[13px] text-ink">{reviewTotals.vat.toFixed(2)}</Text>
+              </View>
+              <View className="mt-1 flex-row justify-between border-t border-line pt-2.5">
+                <Text className="font-sans text-sm text-ink-soft">Total</Text>
+                <Text className="font-mono-semibold text-lg text-ink">{reviewTotals.gross.toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={confirmSave}
+              disabled={submitting}
+              className={`mt-3 items-center rounded-xl bg-brand py-4 ${submitting ? "opacity-50" : ""}`}
+            >
+              <Text className="font-manrope-bold text-base text-brand-ink">
+                {submitting ? "Saving..." : "Save sale"}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  heading: { fontSize: 20, fontWeight: "800", color: colors.text, marginBottom: spacing.md },
-  receiptInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingHorizontal: 14,
-    height: 50,
-    fontSize: 16,
-    color: colors.text,
-    marginBottom: spacing.lg,
-  },
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: colors.textMuted, marginBottom: spacing.sm },
-  productGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
-  productChip: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    borderRadius: radius.md,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    minWidth: "45%",
-  },
-  productChipName: { fontSize: 14, fontWeight: "600", color: colors.text },
-  productChipPrice: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  emptyText: { fontSize: 13, color: colors.textFaint },
-  cart: { marginTop: spacing.xl },
-  cartRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: spacing.sm,
-  },
-  cartRowName: { fontSize: 14, fontWeight: "600", color: colors.text },
-  cartRowMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  stepper: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  stepperButton: {
-    width: 28,
-    height: 28,
-    borderRadius: radius.sm,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stepperValue: { fontSize: 14, fontWeight: "700", color: colors.text, minWidth: 20, textAlign: "center" },
-  footer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: spacing.sm },
-  totalLabel: { fontSize: 14, color: colors.textMuted },
-  totalValue: { fontSize: 18, fontWeight: "800", color: colors.text },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.md,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  submitButtonDisabled: { opacity: 0.5 },
-  submitButtonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-});

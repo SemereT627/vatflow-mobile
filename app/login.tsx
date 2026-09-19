@@ -13,7 +13,7 @@ import { Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/context/auth-context";
-import { colors, radius, spacing } from "@/constants/theme";
+import { colors, fonts, radius, spacing } from "@/constants/theme";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -43,7 +43,7 @@ export default function LoginScreen() {
     >
       <View style={styles.brand}>
         <View style={styles.brandMark}>
-          <Ionicons name="receipt-outline" size={26} color="#fff" />
+          <Ionicons name="receipt-outline" size={26} color={colors.onPrimary} />
         </View>
         <Text style={styles.title}>VatFlow</Text>
         <Text style={styles.subtitle}>Sign in to record sales.</Text>
@@ -95,7 +95,11 @@ export default function LoginScreen() {
           onPress={handleSubmit}
           disabled={submitting || !email || !password}
         >
-          {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign In</Text>}
+          {submitting ? (
+            <ActivityIndicator color={colors.onPrimary} />
+          ) : (
+            <Text style={styles.buttonText}>Sign In</Text>
+          )}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -119,8 +123,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: spacing.lg,
   },
-  title: { fontSize: 24, fontWeight: "800", color: colors.text },
-  subtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
+  title: { fontSize: 24, color: colors.text, fontFamily: fonts.heading },
+  subtitle: { fontSize: 14, color: colors.textMuted, marginTop: 4, fontFamily: fonts.body },
   form: { gap: spacing.md },
   inputWrap: {
     flexDirection: "row",
@@ -133,7 +137,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     height: 50,
   },
-  input: { flex: 1, fontSize: 16, color: colors.text, height: "100%" },
+  input: { flex: 1, fontSize: 16, color: colors.text, height: "100%", fontFamily: fonts.body },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -142,7 +146,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: 10,
   },
-  error: { color: colors.danger, fontSize: 13, flex: 1 },
+  error: { color: colors.danger, fontSize: 13, flex: 1, fontFamily: fonts.body },
   button: {
     backgroundColor: colors.primary,
     borderRadius: radius.md,
@@ -151,5 +155,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   buttonDisabled: { opacity: 0.5 },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  buttonText: { color: colors.onPrimary, fontSize: 16, fontFamily: fonts.bodyBold },
 });

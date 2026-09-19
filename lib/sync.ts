@@ -8,7 +8,10 @@ import {
   setSyncIssue,
   cacheCatalog,
   getCachedCatalog,
+  cacheProfile,
+  getCachedProfile,
   type CachedProduct,
+  type CachedProfile,
 } from "@/lib/db";
 
 type SyncResult =
@@ -142,14 +145,24 @@ export async function refreshCatalog(): Promise<CachedProduct[]> {
     });
     if (!res.ok) return getCachedCatalog();
 
-    const { data }: { data: { id: string; name: string; unit_price_before_vat: number; unit_of_measure: number }[] } =
-      await res.json();
+    const {
+      data,
+    }: {
+      data: {
+        id: string;
+        name: string;
+        unit_price_before_vat: number;
+        unit_of_measure: string;
+        unit_short_code: string;
+      }[];
+    } = await res.json();
 
     const products: CachedProduct[] = data.map((p) => ({
       id: p.id,
       name: p.name,
       unitPriceBeforeVat: p.unit_price_before_vat,
       unitOfMeasure: p.unit_of_measure,
+      unitShortCode: p.unit_short_code,
     }));
 
     await cacheCatalog(products);
@@ -157,5 +170,49 @@ export async function refreshCatalog(): Promise<CachedProduct[]> {
   } catch (err) {
     console.error("refreshCatalog: failed, using cache", err);
     return getCachedCatalog();
+  }
+}
+
+/** Refreshes account/shop details from GET /api/me. Best-effort — silently
+ * keeps the last-known cache if offline. */
+export async function refreshProfile(): Promise<CachedProfile | null> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return getCachedProfile();
+
+    const res = await fetch(`${API_BASE_URL}/api/me`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) return getCachedProfile();
+
+    const {
+      data,
+    }: {
+      data: {
+        email: string | null;
+        full_name: string;
+        role: "admin" | "seller";
+        shop: { business_name: string; tin: string | null; vat_rate: number };
+      };
+    } = await res.json();
+
+    const profile: CachedProfile = {
+      email: data.email,
+      fullName: data.full_name,
+      role: data.role,
+      shop: {
+        businessName: data.shop.business_name,
+        tin: data.shop.tin,
+        vatRate: data.shop.vat_rate,
+      },
+    };
+
+    await cacheProfile(profile);
+    return profile;
+  } catch (err) {
+    console.error("refreshProfile: failed, using cache", err);
+    return getCachedProfile();
   }
 }

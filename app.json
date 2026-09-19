@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.infinity627.vatflow"
@@ -14,7 +14,7 @@
     "android": {
       "package": "com.infinity627.vatflow",
       "adaptiveIcon": {
-        "backgroundColor": "#00E096",
+        "backgroundColor": "#2aa57f",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
