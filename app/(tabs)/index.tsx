@@ -24,6 +24,9 @@ export default function NewSaleScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [vatRate, setVatRate] = useState(DEFAULT_VAT_RATE);
+  const [showBuyer, setShowBuyer] = useState(false);
+  const [buyerName, setBuyerName] = useState("");
+  const [buyerTin, setBuyerTin] = useState("");
 
   useEffect(() => {
     refreshCatalog().then(setProducts);
@@ -111,12 +114,15 @@ export default function NewSaleScreen() {
         clientId: Crypto.randomUUID(),
         vatReceiptNumber: receiptNumber.trim(),
         saleDate: todayIso(),
-        buyerTin: null,
-        buyerName: null,
+        buyerTin: buyerTin.trim() || null,
+        buyerName: buyerName.trim() || null,
         items: cart,
       });
       setReceiptNumber("");
       setCart([]);
+      setBuyerName("");
+      setBuyerTin("");
+      setShowBuyer(false);
       setReviewOpen(false);
       runSaleSync();
       Alert.alert("Saved", "Sale recorded. It will sync automatically.");
@@ -273,6 +279,32 @@ export default function NewSaleScreen() {
               )}
               ListEmptyComponent={<Text className="font-sans text-[13px] text-ink-faint">Cart is empty.</Text>}
             />
+
+            <Pressable onPress={() => setShowBuyer((v) => !v)} className="py-1">
+              <Text className="font-manrope-semibold text-[13px] text-ink-soft underline">
+                {showBuyer ? "Hide buyer details" : "Add buyer details (optional)"}
+              </Text>
+            </Pressable>
+            {showBuyer && (
+              <View className="gap-2 py-2.5">
+                <TextInput
+                  className="rounded-lg border border-line bg-background px-3 py-2.5 font-sans text-sm text-ink"
+                  placeholder="Buyer name"
+                  placeholderTextColor={colors.textFaint}
+                  value={buyerName}
+                  onChangeText={setBuyerName}
+                />
+                <TextInput
+                  className="rounded-lg border border-line bg-background px-3 py-2.5 font-sans text-sm text-ink"
+                  placeholder="Buyer TIN"
+                  placeholderTextColor={colors.textFaint}
+                  value={buyerTin}
+                  onChangeText={setBuyerTin}
+                  autoCapitalize="none"
+                  keyboardType="number-pad"
+                />
+              </View>
+            )}
 
             <View className="gap-1 border-t border-line pt-2.5">
               <View className="flex-row justify-between">

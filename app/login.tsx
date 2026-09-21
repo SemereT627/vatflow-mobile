@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from "react-native";
 import { Redirect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -42,9 +43,7 @@ export default function LoginScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <View style={styles.brand}>
-        <View style={styles.brandMark}>
-          <Ionicons name="receipt-outline" size={26} color={colors.onPrimary} />
-        </View>
+        <Image source={require("@/assets/mark.png")} style={styles.brandMark} resizeMode="contain" />
         <Text style={styles.title}>VatFlow</Text>
         <Text style={styles.subtitle}>Sign in to record sales.</Text>
       </View>
@@ -117,10 +116,6 @@ const styles = StyleSheet.create({
   brandMark: {
     width: 56,
     height: 56,
-    borderRadius: radius.lg,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: spacing.lg,
   },
   title: { fontSize: 24, color: colors.text, fontFamily: fonts.heading },
