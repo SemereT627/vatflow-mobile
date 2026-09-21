@@ -218,8 +218,9 @@ export default function NewSaleScreen() {
       </View>
 
       <Modal visible={reviewOpen} animationType="slide" transparent onRequestClose={() => setReviewOpen(false)}>
-        <View className="flex-1 justify-end bg-black/50">
-          <View
+        <Pressable className="flex-1 justify-end bg-black/50" onPress={() => setReviewOpen(false)}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
             className="max-h-[85%] rounded-t-2xl bg-surface p-5"
             style={{ paddingBottom: insets.bottom + 12 }}
           >
@@ -330,8 +331,8 @@ export default function NewSaleScreen() {
                 {submitting ? "Saving..." : "Save sale"}
               </Text>
             </Pressable>
-          </View>
-        </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     </View>
   );
