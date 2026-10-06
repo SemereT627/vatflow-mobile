@@ -27,6 +27,7 @@ export default function NewSaleScreen() {
   const [showBuyer, setShowBuyer] = useState(false);
   const [buyerName, setBuyerName] = useState("");
   const [buyerTin, setBuyerTin] = useState("");
+  const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
 
   useEffect(() => {
     refreshCatalog().then(setProducts);
@@ -65,6 +66,17 @@ export default function NewSaleScreen() {
         )
         .filter((line) => line.quantity > 0)
     );
+  }
+
+  function commitLineQuantity(productId: string, text: string) {
+    const parsed = parseFloat(text);
+    const quantity = Number.isFinite(parsed) ? Math.round(parsed * 100) / 100 : NaN;
+    if (quantity > 0) {
+      setCart((prev) =>
+        prev.map((line) => (line.productId === productId ? { ...line, quantity } : line))
+      );
+    }
+    setEditingQtyId(null);
   }
 
   function updateLineDescription(productId: string, description: string) {
@@ -252,9 +264,24 @@ export default function NewSaleScreen() {
                       >
                         <Ionicons name="remove" size={16} color={colors.text} />
                       </Pressable>
-                      <Text className="min-w-5 text-center font-mono-semibold text-sm text-ink">
-                        {line.quantity}
-                      </Text>
+                      {editingQtyId === line.productId ? (
+                        <TextInput
+                          key={`qty-edit-${line.productId}`}
+                          autoFocus
+                          selectTextOnFocus
+                          keyboardType="decimal-pad"
+                          defaultValue={String(line.quantity)}
+                          className="min-w-10 rounded-md border border-line bg-background px-1 py-0.5 text-center font-mono-semibold text-sm text-ink"
+                          onEndEditing={(e) => commitLineQuantity(line.productId!, e.nativeEvent.text)}
+                          onSubmitEditing={(e) => commitLineQuantity(line.productId!, e.nativeEvent.text)}
+                        />
+                      ) : (
+                        <Pressable onPress={() => setEditingQtyId(line.productId!)}>
+                          <Text className="min-w-5 text-center font-mono-semibold text-sm text-ink">
+                            {line.quantity}
+                          </Text>
+                        </Pressable>
+                      )}
                       <Pressable
                         onPress={() => changeQuantity(line.productId!, 1)}
                         className="h-7 w-7 items-center justify-center rounded-md border border-line bg-background"
