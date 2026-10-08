@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, Modal, FlatList } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, Modal, FlatList, KeyboardAvoidingView, Platform } from "react-native";
 import * as Crypto from "expo-crypto";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -229,8 +229,18 @@ export default function NewSaleScreen() {
         </Pressable>
       </View>
 
-      <Modal visible={reviewOpen} animationType="slide" transparent onRequestClose={() => setReviewOpen(false)}>
+      <Modal
+        visible={reviewOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setReviewOpen(false)}
+        statusBarTranslucent
+      >
         <Pressable className="flex-1 justify-end bg-black/50" onPress={() => setReviewOpen(false)}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 0 : -insets.bottom}
+          >
           <Pressable
             onPress={(e) => e.stopPropagation()}
             className="max-h-[85%] rounded-t-2xl bg-surface p-5"
@@ -359,6 +369,7 @@ export default function NewSaleScreen() {
               </Text>
             </Pressable>
           </Pressable>
+          </KeyboardAvoidingView>
         </Pressable>
       </Modal>
     </View>
