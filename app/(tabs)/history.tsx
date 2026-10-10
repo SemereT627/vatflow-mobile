@@ -100,7 +100,14 @@ export default function HistoryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  heading: { fontSize: 20, fontFamily: fonts.heading, color: colors.text, padding: spacing.lg, paddingBottom: spacing.sm },
+  heading: {
+    fontSize: 20,
+    fontFamily: fonts.heading,
+    color: colors.text,
+    padding: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
   issueBanner: {
     flexDirection: "row",
     alignItems: "center",

@@ -15,6 +15,7 @@ import {
 import { Sora_600SemiBold, Sora_700Bold, Sora_800ExtraBold } from "@expo-google-fonts/sora";
 import { JetBrainsMono_500Medium, JetBrainsMono_600SemiBold } from "@expo-google-fonts/jetbrains-mono";
 import { AuthProvider } from "@/context/auth-context";
+import { CartProvider } from "@/context/cart-context";
 import { colors } from "@/constants/theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -42,16 +43,19 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <StatusBar style="light" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: colors.background },
-          }}
-        >
-          <Stack.Screen name="login" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
+        <CartProvider>
+          <StatusBar style="light" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: colors.background },
+            }}
+          >
+            <Stack.Screen name="login" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="sale-review" />
+          </Stack>
+        </CartProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );
