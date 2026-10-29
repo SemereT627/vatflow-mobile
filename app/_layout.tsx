@@ -17,6 +17,7 @@ import { JetBrainsMono_500Medium, JetBrainsMono_600SemiBold } from "@expo-google
 import { AuthProvider } from "@/context/auth-context";
 import { CartProvider } from "@/context/cart-context";
 import { colors } from "@/constants/theme";
+import { UpdateBanner } from "@/components/update-banner";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -55,6 +56,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="sale-review" />
           </Stack>
+          <UpdateBanner />
         </CartProvider>
       </AuthProvider>
     </SafeAreaProvider>
