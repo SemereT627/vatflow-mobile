@@ -33,7 +33,7 @@ export default function NewSaleScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 96 }}
         ListHeaderComponent={
-          <Text className="px-5 pb-2 pt-4 text-[13px] font-manrope-semibold text-ink-soft">Tap an item to add it</Text>
+          <Text className="px-5 pb-2 pt-4 text-[13px] font-sans-semibold text-ink-soft">Tap an item to add it</Text>
         }
         ItemSeparatorComponent={() => <View className="h-[1px] bg-line ml-[68px]" />}
         renderItem={({ item }) => {
@@ -47,7 +47,7 @@ export default function NewSaleScreen() {
                 <Text className="text-base font-heading-semibold text-ink-soft">{initialOf(item.name)}</Text>
               </View>
               <View className="flex-1">
-                <Text className="text-[15px] font-manrope-semibold text-ink">{item.name}</Text>
+                <Text className="text-[15px] font-sans-semibold text-ink">{item.name}</Text>
                 <Text className="mt-0.5 font-mono text-xs text-ink-soft">
                   {item.unitPriceBeforeVat.toFixed(2)} / {item.unitShortCode}
                 </Text>
@@ -63,7 +63,7 @@ export default function NewSaleScreen() {
               )}
               {qty > 0 && (
                 <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-brand px-1.5">
-                  <Text className="font-manrope-bold text-xs text-brand-ink">{qty}</Text>
+                  <Text className="font-sans-bold text-xs text-brand-ink">{qty}</Text>
                 </View>
               )}
               <Pressable
@@ -90,9 +90,9 @@ export default function NewSaleScreen() {
           style={{ right: 20, bottom: insets.bottom + 20 }}
         >
           <View className="h-6 min-w-[24px] items-center justify-center rounded-full bg-black/15 px-1.5">
-            <Text className="font-manrope-bold text-xs text-brand-ink">{cart.length}</Text>
+            <Text className="font-sans-bold text-xs text-brand-ink">{cart.length}</Text>
           </View>
-          <Text className="font-manrope-bold text-[15px] text-brand-ink">Review sale</Text>
+          <Text className="font-sans-bold text-[15px] text-brand-ink">Review sale</Text>
           <Ionicons name="arrow-forward" size={18} color={colors.onPrimary} />
         </Pressable>
       )}

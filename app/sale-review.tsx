@@ -105,7 +105,7 @@ export default function SaleReviewScreen() {
                 <View className="gap-2 py-3">
                   <View className="flex-row items-center gap-3">
                     <TextInput
-                      className="flex-1 font-manrope-semibold text-[15px] text-ink"
+                      className="flex-1 font-sans-semibold text-[15px] text-ink"
                       value={line.description}
                       onChangeText={(text) => updateLineDescription(line.productId!, text)}
                       placeholder="Name on receipt"
@@ -172,7 +172,7 @@ export default function SaleReviewScreen() {
           </View>
 
           <Pressable onPress={() => setShowBuyer((v) => !v)} className="py-2">
-            <Text className="font-manrope-semibold text-[13px] text-ink-soft underline">
+            <Text className="font-sans-semibold text-[13px] text-ink-soft underline">
               {showBuyer ? "Hide buyer details" : "Add buyer details (optional)"}
             </Text>
           </Pressable>
@@ -219,7 +219,7 @@ export default function SaleReviewScreen() {
             disabled={submitting}
             className={`items-center rounded-xl bg-brand py-4 ${submitting ? "opacity-50" : ""}`}
           >
-            <Text className="font-manrope-bold text-base text-brand-ink">
+            <Text className="font-sans-bold text-base text-brand-ink">
               {submitting ? "Saving..." : "Save sale"}
             </Text>
           </Pressable>

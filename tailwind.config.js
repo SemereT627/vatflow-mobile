@@ -30,21 +30,21 @@ module.exports = {
         md: "10px",
         lg: "16px",
       },
-      // Same three-family stack as vatflow-web (Sora / Manrope / JetBrains
-      // Mono). Each token maps straight to one loaded weight — React Native
-      // has no font-weight synthesis for custom fonts, so don't pair these
-      // with font-bold/font-semibold, use the matching weight token instead.
+      // Same type system as vatflow-web: Inter for text and headings, Geist
+      // Mono for data. Each token maps straight to one loaded weight — React
+      // Native has no font-weight synthesis for custom fonts, so don't pair
+      // these with font-bold/font-semibold, use the matching weight token.
       fontFamily: {
-        sans: ["Manrope_400Regular"],
-        "manrope-medium": ["Manrope_500Medium"],
-        "manrope-semibold": ["Manrope_600SemiBold"],
-        "manrope-bold": ["Manrope_700Bold"],
-        "manrope-extrabold": ["Manrope_800ExtraBold"],
-        "heading-semibold": ["Sora_600SemiBold"],
-        heading: ["Sora_700Bold"],
-        "heading-extrabold": ["Sora_800ExtraBold"],
-        mono: ["JetBrainsMono_500Medium"],
-        "mono-semibold": ["JetBrainsMono_600SemiBold"],
+        sans: ["Inter_400Regular"],
+        "sans-medium": ["Inter_500Medium"],
+        "sans-semibold": ["Inter_600SemiBold"],
+        "sans-bold": ["Inter_700Bold"],
+        "sans-extrabold": ["Inter_800ExtraBold"],
+        "heading-semibold": ["Inter_600SemiBold"],
+        heading: ["Inter_700Bold"],
+        "heading-extrabold": ["Inter_800ExtraBold"],
+        mono: ["GeistMono_500Medium"],
+        "mono-semibold": ["GeistMono_600SemiBold"],
       },
     },
   },

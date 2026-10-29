@@ -56,13 +56,13 @@ export function UpdateBanner() {
       >
         <Ionicons name="cloud-download-outline" size={20} color={colors.primary} />
         <View className="flex-1">
-          <Text className="font-manrope-semibold text-[15px] text-ink">Update ready</Text>
+          <Text className="font-sans-semibold text-[15px] text-ink">Update ready</Text>
           <Text className="mt-0.5 font-sans text-[13px] text-ink-soft">
             Restart VatFlow to use the latest version.
           </Text>
         </View>
         <Pressable onPress={() => setDismissed(true)} hitSlop={8} accessibilityRole="button" className="px-1 py-2">
-          <Text className="font-manrope-medium text-sm text-ink-soft">Later</Text>
+          <Text className="font-sans-medium text-sm text-ink-soft">Later</Text>
         </Pressable>
         <Pressable
           onPress={() => {
@@ -74,7 +74,7 @@ export function UpdateBanner() {
           className="rounded-full bg-brand px-3 py-2"
           style={{ opacity: restarting ? 0.6 : 1 }}
         >
-          <Text className="font-manrope-semibold text-sm text-brand-ink">
+          <Text className="font-sans-semibold text-sm text-brand-ink">
             {restarting ? "Restarting…" : "Restart"}
           </Text>
         </Pressable>

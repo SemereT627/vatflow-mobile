@@ -4,9 +4,8 @@
   "packageManager": "pnpm@10.32.1",
   "main": "expo-router/entry",
   "dependencies": {
-    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
-    "@expo-google-fonts/manrope": "^0.4.2",
-    "@expo-google-fonts/sora": "^0.4.2",
+    "@expo-google-fonts/geist-mono": "^0.4.3",
+    "@expo-google-fonts/inter": "^0.4.2",
     "@expo/metro-runtime": "~57.0.16",
     "@expo/vector-icons": "^15.0.2",
     "@react-native-community/netinfo": "12.0.1",

@@ -23,19 +23,19 @@ export const colors = {
 export const spacing = { xs: 6, sm: 10, md: 14, lg: 20, xl: 28, xxl: 40 };
 export const radius = { sm: 6, md: 10, lg: 16 };
 
-// Same three-family stack as vatflow-web (Sora / Manrope / JetBrains Mono).
-// These strings are the exact @expo-google-fonts export names loaded in
-// app/_layout.tsx — React Native matches fontFamily against that name, not
-// the family's real name inside the font file.
+// Same type system as vatflow-web (and Kiln): Inter for text and headings,
+// Geist Mono for data. These strings are the exact @expo-google-fonts export
+// names loaded in app/_layout.tsx — React Native has no font-weight synthesis
+// for custom fonts, so each weight is its own family.
 export const fonts = {
-  headingSemibold: "Sora_600SemiBold",
-  heading: "Sora_700Bold",
-  headingExtrabold: "Sora_800ExtraBold",
-  body: "Manrope_400Regular",
-  bodyMedium: "Manrope_500Medium",
-  bodySemibold: "Manrope_600SemiBold",
-  bodyBold: "Manrope_700Bold",
-  bodyExtrabold: "Manrope_800ExtraBold",
-  mono: "JetBrainsMono_500Medium",
-  monoSemibold: "JetBrainsMono_600SemiBold",
+  headingSemibold: "Inter_600SemiBold",
+  heading: "Inter_700Bold",
+  headingExtrabold: "Inter_800ExtraBold",
+  body: "Inter_400Regular",
+  bodyMedium: "Inter_500Medium",
+  bodySemibold: "Inter_600SemiBold",
+  bodyBold: "Inter_700Bold",
+  bodyExtrabold: "Inter_800ExtraBold",
+  mono: "GeistMono_500Medium",
+  monoSemibold: "GeistMono_600SemiBold",
 };
