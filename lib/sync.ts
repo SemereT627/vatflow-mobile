@@ -10,11 +10,11 @@ import {
   getCachedCatalog,
   cacheProfile,
   getCachedProfile,
-  applyReviewStatuses,
+  applyServerSales,
   replaceSaleAfterResubmit,
   type CachedProduct,
   type CachedProfile,
-  type ReviewStatus,
+  type ServerSale,
   type SaleCartItem,
 } from "@/lib/db";
 
@@ -221,8 +221,9 @@ export async function refreshProfile(): Promise<CachedProfile | null> {
   }
 }
 
-/** Pulls the admin's review status for this seller's synced receipts from
- * GET /api/sales/mine. Best-effort — keeps the last-known statuses offline. */
+/** Pulls this seller's synced receipts and their review status from
+ * GET /api/sales/mine, restoring History on a fresh install. Best-effort —
+ * keeps the last-known statuses offline. */
 export async function refreshReviewStatuses(): Promise<void> {
   try {
     const {
@@ -235,11 +236,8 @@ export async function refreshReviewStatuses(): Promise<void> {
     });
     if (!res.ok) return;
 
-    const {
-      data,
-    }: { data: { id: string; clientId: string; reviewStatus: ReviewStatus; reviewNote: string | null }[] } =
-      await res.json();
-    await applyReviewStatuses(data);
+    const { data }: { data: ServerSale[] } = await res.json();
+    await applyServerSales(data);
   } catch (err) {
     console.error("refreshReviewStatuses: failed", err);
   }

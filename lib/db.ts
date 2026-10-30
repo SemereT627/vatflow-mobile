@@ -321,17 +321,75 @@ export async function getCachedProfile(): Promise<CachedProfile | null> {
   return row ? JSON.parse(row.data) : null;
 }
 
-/** Mirrors server review statuses onto local rows (matched by client_id). */
-export async function applyReviewStatuses(
-  updates: { clientId: string; id: string; reviewStatus: ReviewStatus; reviewNote: string | null }[]
-) {
+/** A receipt as GET /api/sales/mine returns it. The receipt fields are absent
+ * from servers deployed before History could be restored. */
+export type ServerSale = {
+  id: string;
+  clientId: string;
+  vatReceiptNumber?: string;
+  saleDate?: string;
+  buyerName?: string | null;
+  buyerTin?: string | null;
+  createdAt?: string;
+  items?: SaleCartItem[];
+  reviewStatus: ReviewStatus;
+  reviewNote: string | null;
+};
+
+/**
+ * Mirrors the server's copy of this seller's receipts onto local rows (matched
+ * by client_id). The server is the source of truth once a receipt is synced, so
+ * synced rows take its details and lines too — an admin may have corrected the
+ * buyer or date. Receipts missing locally (reinstalled app, new phone) are
+ * added back. Rows still queued or syncing on this device are left alone.
+ */
+export async function applyServerSales(sales: ServerSale[]) {
   const db = await getDb();
   await db.withTransactionAsync(async () => {
-    for (const u of updates) {
-      await db.runAsync(
-        "UPDATE pending_sales SET review_status = ?, review_note = ?, server_id = COALESCE(server_id, ?) WHERE client_id = ?",
-        [u.reviewStatus, u.reviewNote, u.id, u.clientId]
+    for (const s of sales) {
+      if (!s.vatReceiptNumber || !s.saleDate || !s.items) {
+        await db.runAsync(
+          "UPDATE pending_sales SET review_status = ?, review_note = ?, server_id = COALESCE(server_id, ?) WHERE client_id = ?",
+          [s.reviewStatus, s.reviewNote, s.id, s.clientId]
+        );
+        continue;
+      }
+
+      const result = await db.runAsync(
+        `INSERT INTO pending_sales
+          (client_id, server_id, vat_receipt_number, sale_date, buyer_tin, buyer_name, status, created_at, review_status, review_note)
+         VALUES (?, ?, ?, ?, ?, ?, 'synced', ?, ?, ?)
+         ON CONFLICT (client_id) DO UPDATE SET
+           server_id = excluded.server_id,
+           sale_date = excluded.sale_date,
+           buyer_tin = excluded.buyer_tin,
+           buyer_name = excluded.buyer_name,
+           review_status = excluded.review_status,
+           review_note = excluded.review_note
+         WHERE pending_sales.status = 'synced'`,
+        [
+          s.clientId,
+          s.id,
+          s.vatReceiptNumber,
+          s.saleDate,
+          s.buyerTin ?? null,
+          s.buyerName ?? null,
+          s.createdAt ?? new Date().toISOString(),
+          s.reviewStatus,
+          s.reviewNote,
+        ]
       );
+      if (result.changes === 0) continue;
+
+      await db.runAsync("DELETE FROM pending_sale_items WHERE sale_client_id = ?", [s.clientId]);
+      for (const item of s.items) {
+        await db.runAsync(
+          `INSERT INTO pending_sale_items
+            (sale_client_id, product_id, description, unit_of_measure, quantity, unit_price)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [s.clientId, item.productId, item.description, item.unitOfMeasure, item.quantity, item.unitPrice]
+        );
+      }
     }
   });
 }
