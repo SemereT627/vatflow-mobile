@@ -1,9 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getCachedProfile, type CachedProduct, type SaleCartItem } from "@/lib/db";
+import { getCachedCatalog, getCachedProfile, type CachedProduct, type PendingSale, type SaleCartItem } from "@/lib/db";
 import { DEFAULT_VAT_RATE } from "@/lib/vat";
+
+/** Set while fixing a receipt an admin sent back — saving resubmits it. */
+export type EditingSale = { clientId: string; serverId: string; saleDate: string };
 
 type CartContextValue = {
   cart: SaleCartItem[];
+  editing: EditingSale | null;
+  loadForEdit: (sale: PendingSale) => Promise<void>;
   receiptNumber: string;
   buyerName: string;
   buyerTin: string;
@@ -24,6 +29,7 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<SaleCartItem[]>([]);
+  const [editing, setEditing] = useState<EditingSale | null>(null);
   const [receiptNumber, setReceiptNumber] = useState("");
   const [buyerName, setBuyerName] = useState("");
   const [buyerTin, setBuyerTin] = useState("");
@@ -87,7 +93,25 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return cart.find((line) => line.productId === productId)?.quantity ?? 0;
   }
 
+  async function loadForEdit(sale: PendingSale) {
+    if (!sale.serverId) return;
+    // Unit labels aren't stored with queued sales; take them from the catalog.
+    const catalog = await getCachedCatalog();
+    const shortCodes = new Map(catalog.map((p) => [p.id, p.unitShortCode]));
+    setCart(
+      sale.items.map((item) => ({
+        ...item,
+        unitShortCode: item.productId ? shortCodes.get(item.productId) : undefined,
+      }))
+    );
+    setReceiptNumber(sale.vatReceiptNumber);
+    setBuyerName(sale.buyerName ?? "");
+    setBuyerTin(sale.buyerTin ?? "");
+    setEditing({ clientId: sale.clientId, serverId: sale.serverId, saleDate: sale.saleDate });
+  }
+
   function resetSale() {
+    setEditing(null);
     setCart([]);
     setReceiptNumber("");
     setBuyerName("");
@@ -98,6 +122,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{
         cart,
+        editing,
+        loadForEdit,
         receiptNumber,
         buyerName,
         buyerTin,

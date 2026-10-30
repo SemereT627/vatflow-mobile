@@ -1,6 +1,8 @@
 import * as SQLite from "expo-sqlite";
 
 export type SyncStatus = "pending" | "syncing" | "synced" | "rejected";
+/** Admin review of a synced receipt (server-side status, mirrored locally). */
+export type ReviewStatus = "pending" | "approved" | "rejected";
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -42,6 +44,15 @@ function getDb() {
           data TEXT NOT NULL
         );
       `);
+      // Columns added after the first release — ALTER fails harmlessly on
+      // devices that already have them.
+      for (const column of ["review_status TEXT", "review_note TEXT"]) {
+        try {
+          await db.execAsync(`ALTER TABLE pending_sales ADD COLUMN ${column}`);
+        } catch {
+          // already exists
+        }
+      }
       return db;
     });
   }
@@ -97,6 +108,9 @@ export type PendingSale = {
   buyerName: string | null;
   status: SyncStatus;
   failReason: string | null;
+  /** Null until the server has reported a review status for this receipt. */
+  reviewStatus: ReviewStatus | null;
+  reviewNote: string | null;
   createdAt: string;
   items: SaleCartItem[];
 };
@@ -110,6 +124,8 @@ type PendingSaleRow = {
   buyer_name: string | null;
   status: SyncStatus;
   fail_reason: string | null;
+  review_status: ReviewStatus | null;
+  review_note: string | null;
   created_at: string;
 };
 
@@ -133,14 +149,16 @@ function rowToSale(row: PendingSaleRow, items: SaleCartItem[]): PendingSale {
     buyerName: row.buyer_name,
     status: row.status,
     failReason: row.fail_reason,
+    reviewStatus: row.review_status ?? null,
+    reviewNote: row.review_note ?? null,
     createdAt: row.created_at,
     items,
   };
 }
 
-/** Queues a sale for sync — this device's only write path. The receipt is
- * already issued on paper by the time this is called, so there's no admin
- * approval step; sync writes straight to `sales` + `sale_items`. */
+/** Queues a sale for sync — this device's only write path for new sales.
+ * The receipt is already issued on paper by the time this is called; once
+ * synced it waits for an admin's review (see applyReviewStatuses). */
 export async function enqueueSale(input: {
   clientId: string;
   vatReceiptNumber: string;
@@ -301,4 +319,43 @@ export async function getCachedProfile(): Promise<CachedProfile | null> {
   const db = await getDb();
   const row = await db.getFirstAsync<{ data: string }>("SELECT data FROM profile_cache WHERE id = 1");
   return row ? JSON.parse(row.data) : null;
+}
+
+/** Mirrors server review statuses onto local rows (matched by client_id). */
+export async function applyReviewStatuses(
+  updates: { clientId: string; id: string; reviewStatus: ReviewStatus; reviewNote: string | null }[]
+) {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    for (const u of updates) {
+      await db.runAsync(
+        "UPDATE pending_sales SET review_status = ?, review_note = ?, server_id = COALESCE(server_id, ?) WHERE client_id = ?",
+        [u.reviewStatus, u.reviewNote, u.id, u.clientId]
+      );
+    }
+  });
+}
+
+/** After a successful resubmit: the local copy takes the corrected details
+ * and goes back to waiting for review. */
+export async function replaceSaleAfterResubmit(
+  clientId: string,
+  input: { buyerTin: string | null; buyerName: string | null; items: SaleCartItem[] }
+) {
+  const db = await getDb();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      "UPDATE pending_sales SET buyer_tin = ?, buyer_name = ?, review_status = 'pending', review_note = NULL WHERE client_id = ?",
+      [input.buyerTin, input.buyerName, clientId]
+    );
+    await db.runAsync("DELETE FROM pending_sale_items WHERE sale_client_id = ?", [clientId]);
+    for (const item of input.items) {
+      await db.runAsync(
+        `INSERT INTO pending_sale_items
+          (sale_client_id, product_id, description, unit_of_measure, quantity, unit_price)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [clientId, item.productId, item.description, item.unitOfMeasure, item.quantity, item.unitPrice]
+      );
+    }
+  });
 }

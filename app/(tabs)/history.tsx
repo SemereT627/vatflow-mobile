@@ -1,22 +1,39 @@
 import { useCallback, useState } from "react";
 import { View, Text, StyleSheet, FlatList, RefreshControl, Pressable, Alert } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { getAllSales, discardSale, getSyncIssue, type PendingSale, type SyncIssue } from "@/lib/db";
-import { runSaleSync } from "@/lib/sync";
+import { refreshReviewStatuses, runSaleSync } from "@/lib/sync";
+import { useCart } from "@/context/cart-context";
 import { lineTotal } from "@/lib/vat";
 import { colors, fonts, radius, spacing } from "@/constants/theme";
 
-const STATUS_META: Record<PendingSale["status"], { label: string; color: string; bg: string }> = {
+type BadgeMeta = { label: string; color: string; bg: string };
+
+const STATUS_META: Record<PendingSale["status"], BadgeMeta> = {
   pending: { label: "Waiting to sync", color: colors.warning, bg: colors.warningSoft },
   syncing: { label: "Syncing...", color: colors.warning, bg: colors.warningSoft },
   synced: { label: "Synced", color: colors.success, bg: colors.successSoft },
   rejected: { label: "Rejected", color: colors.danger, bg: colors.dangerSoft },
 };
 
+// Once synced, the admin's review is what matters to the seller.
+const REVIEW_META: Record<NonNullable<PendingSale["reviewStatus"]>, BadgeMeta> = {
+  pending: { label: "Pending review", color: colors.warning, bg: colors.warningSoft },
+  approved: { label: "Approved", color: colors.success, bg: colors.successSoft },
+  rejected: { label: "Needs fixing", color: colors.danger, bg: colors.dangerSoft },
+};
+
+function badgeFor(sale: PendingSale): BadgeMeta {
+  if (sale.status === "synced" && sale.reviewStatus) return REVIEW_META[sale.reviewStatus];
+  return STATUS_META[sale.status];
+}
+
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { loadForEdit } = useCart();
   const [sales, setSales] = useState<PendingSale[]>([]);
   const [issue, setIssue] = useState<SyncIssue | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,14 +46,22 @@ export default function HistoryScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
+      // Show local data immediately, then pick up the admin's latest reviews.
+      refreshReviewStatuses().then(load);
     }, [load])
   );
 
   async function handleRefresh() {
     setRefreshing(true);
     await runSaleSync();
+    await refreshReviewStatuses();
     await load();
     setRefreshing(false);
+  }
+
+  async function handleFix(sale: PendingSale) {
+    await loadForEdit(sale);
+    router.push("/sale-review");
   }
 
   function handleDiscard(clientId: string) {
@@ -72,7 +97,8 @@ export default function HistoryScreen() {
         ListEmptyComponent={<Text style={styles.emptyText}>No sales recorded yet.</Text>}
         renderItem={({ item }) => {
           const total = item.items.reduce((sum, line) => sum + lineTotal(line.quantity, line.unitPrice), 0);
-          const meta = STATUS_META[item.status];
+          const meta = badgeFor(item);
+          const needsFixing = item.status === "synced" && item.reviewStatus === "rejected";
           return (
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
@@ -80,6 +106,15 @@ export default function HistoryScreen() {
                 <Text style={styles.rowMeta}>{item.saleDate} · {total.toFixed(2)}</Text>
                 {item.status === "rejected" && item.failReason && (
                   <Text style={styles.rowReason}>{item.failReason}</Text>
+                )}
+                {needsFixing && item.reviewNote && (
+                  <Text style={styles.rowReason}>Admin: {item.reviewNote}</Text>
+                )}
+                {needsFixing && item.serverId && (
+                  <Pressable onPress={() => handleFix(item)} style={styles.fixButton} hitSlop={6}>
+                    <Ionicons name="create-outline" size={14} color={colors.primary} />
+                    <Text style={styles.fixText}>Fix and resubmit</Text>
+                  </Pressable>
                 )}
               </View>
               <View style={[styles.badge, { backgroundColor: meta.bg }]}>
@@ -135,4 +170,6 @@ const styles = StyleSheet.create({
   badge: { borderRadius: radius.sm, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontFamily: fonts.bodyBold },
   discardButton: { padding: 6 },
+  fixButton: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, alignSelf: "flex-start" },
+  fixText: { fontSize: 13, color: colors.primary, fontFamily: fonts.bodySemibold },
 });

@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import * as Crypto from "expo-crypto";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { enqueueSale } from "@/lib/db";
-import { runSaleSync } from "@/lib/sync";
+import { resubmitSale, runSaleSync } from "@/lib/sync";
 import { calcLine, lineTotal } from "@/lib/vat";
 import { colors } from "@/constants/theme";
 import { useCart } from "@/context/cart-context";
@@ -19,6 +19,7 @@ export default function SaleReviewScreen() {
   const router = useRouter();
   const {
     cart,
+    editing,
     receiptNumber,
     buyerName,
     buyerTin,
@@ -36,6 +37,17 @@ export default function SaleReviewScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [showBuyer, setShowBuyer] = useState(false);
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
+
+  // Leaving a correction unsaved must not leave the cart in edit mode for
+  // the next new sale.
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
+  useEffect(() => {
+    return () => {
+      if (editingRef.current) resetSale();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const totals = cart.reduce(
     (acc, line) => {
@@ -56,6 +68,25 @@ export default function SaleReviewScreen() {
     }
 
     setSubmitting(true);
+    if (editing) {
+      const result = await resubmitSale({
+        clientId: editing.clientId,
+        serverId: editing.serverId,
+        saleDate: editing.saleDate,
+        buyerTin: buyerTin.trim() || null,
+        buyerName: buyerName.trim() || null,
+        items: cart,
+      });
+      setSubmitting(false);
+      if (!result.ok) {
+        Alert.alert("Couldn't resubmit", result.error);
+        return;
+      }
+      resetSale();
+      router.back();
+      Alert.alert("Resubmitted", "Your corrected receipt is waiting for the admin's review again.");
+      return;
+    }
     try {
       await enqueueSale({
         clientId: Crypto.randomUUID(),
@@ -80,19 +111,25 @@ export default function SaleReviewScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
-        <Text className="text-xl font-heading text-ink">Review sale</Text>
+        <Text className="text-xl font-heading text-ink">{editing ? "Fix receipt" : "Review sale"}</Text>
       </View>
 
       <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView className="flex-1 px-5" keyboardShouldPersistTaps="handled">
+          {editing && (
+            <Text className="mt-4 font-sans text-[13px] text-ink-soft">
+              Correct the details the admin flagged, then resubmit. The receipt number stays the same.
+            </Text>
+          )}
           <View className="mt-4 flex-row items-center gap-2.5 rounded-xl border border-line bg-background px-3.5 h-[50px]">
-            <Ionicons name="receipt-outline" size={18} color={colors.textFaint} />
+            <Ionicons name={editing ? "lock-closed-outline" : "receipt-outline"} size={18} color={colors.textFaint} />
             <TextInput
-              className="flex-1 font-sans text-base text-ink"
+              className={`flex-1 font-sans text-base ${editing ? "text-ink-soft" : "text-ink"}`}
               placeholder="VAT receipt number"
               placeholderTextColor={colors.textFaint}
               value={receiptNumber}
               onChangeText={setReceiptNumber}
+              editable={!editing}
               autoCapitalize="none"
             />
           </View>
@@ -220,7 +257,7 @@ export default function SaleReviewScreen() {
             className={`items-center rounded-xl bg-brand py-4 ${submitting ? "opacity-50" : ""}`}
           >
             <Text className="font-sans-bold text-base text-brand-ink">
-              {submitting ? "Saving..." : "Save sale"}
+              {submitting ? "Saving..." : editing ? "Resubmit for review" : "Save sale"}
             </Text>
           </Pressable>
         </View>

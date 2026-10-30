@@ -10,8 +10,12 @@ import {
   getCachedCatalog,
   cacheProfile,
   getCachedProfile,
+  applyReviewStatuses,
+  replaceSaleAfterResubmit,
   type CachedProduct,
   type CachedProfile,
+  type ReviewStatus,
+  type SaleCartItem,
 } from "@/lib/db";
 
 type SyncResult =
@@ -214,5 +218,75 @@ export async function refreshProfile(): Promise<CachedProfile | null> {
   } catch (err) {
     console.error("refreshProfile: failed, using cache", err);
     return getCachedProfile();
+  }
+}
+
+/** Pulls the admin's review status for this seller's synced receipts from
+ * GET /api/sales/mine. Best-effort — keeps the last-known statuses offline. */
+export async function refreshReviewStatuses(): Promise<void> {
+  try {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const res = await fetch(`${API_BASE_URL}/api/sales/mine`, {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (!res.ok) return;
+
+    const {
+      data,
+    }: { data: { id: string; clientId: string; reviewStatus: ReviewStatus; reviewNote: string | null }[] } =
+      await res.json();
+    await applyReviewStatuses(data);
+  } catch (err) {
+    console.error("refreshReviewStatuses: failed", err);
+  }
+}
+
+/**
+ * Sends a corrected, previously rejected receipt back for review via
+ * POST /api/sales/[id]/resubmit. Needs a connection — unlike new sales, a
+ * resubmit isn't queued, so the seller sees the result straight away.
+ */
+export async function resubmitSale(input: {
+  clientId: string;
+  serverId: string;
+  saleDate: string;
+  buyerTin: string | null;
+  buyerName: string | null;
+  items: SaleCartItem[];
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return { ok: false, error: "You're signed out. Sign in again and retry." };
+
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/sales/${input.serverId}/resubmit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        saleDate: input.saleDate,
+        buyerTin: input.buyerTin,
+        buyerName: input.buyerName,
+        items: input.items.map((i) => ({
+          productId: i.productId,
+          description: i.description,
+          unitOfMeasure: i.unitOfMeasure,
+          quantity: i.quantity,
+          unitPrice: i.unitPrice,
+        })),
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      return { ok: false, error: body?.error ?? "The server couldn't accept the correction." };
+    }
+    await replaceSaleAfterResubmit(input.clientId, input);
+    return { ok: true };
+  } catch {
+    return { ok: false, error: "No connection. Resubmitting needs internet — try again when you're online." };
   }
 }
